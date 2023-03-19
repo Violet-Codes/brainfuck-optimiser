@@ -12,4 +12,4 @@ dependencies = [
 [[package]]
 name = "nibbler"
 version = "0.1.0"
-source = "git+https://github.com/Violet-Codes/nibbler#83aab252c6fc32ea9b9b6834735c9fda660d673a"
+source = "git+https://github.com/Violet-Codes/nibbler#40359bf6d122fdb869bd0ac5c18a8235d6245e4e"
