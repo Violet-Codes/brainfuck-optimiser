@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::io::Write;
-use nibbler::errors::show_error;
 
-use brainfuck_optimiser::{ parser::*, interpreter::* };
+use brainfuck_optimiser::{ interpreter::*, repl::* };
 
 macro_rules! readln {
     ($s:expr) => {{
@@ -32,8 +31,13 @@ pub fn main() {
         println!(":m <register>\t\tmoves the head to a specific register");
         println!("<input>      \t\truns the brainfuck code (':' is not a valid comment char)");
         println!("");
+    }
+    let mut interactor = ConsoleInteractor{
+        readln: |s| readln!("{s}"),
+        writeln: |s| println!("{s}"),
+        write_errln: |s| eprintln!("{s}"),
+        display_help: display_help
     };
-    let show_info = |info: TextInfo| format!("at {}:{}", info.line, info.index);
     let mut ctx = BFCtx{
         index: 0,
         memory: HashMap::new(),
@@ -43,33 +47,10 @@ pub fn main() {
                 Err(_) => println!("!NaN or not u8"),
             }
         },
-        put: |x| println!("put: {x}")
+        put: |x| println!("put: {x} ({})", x as char)
     };
     println!("Welcome to the brainfuck REPL~ ❤️");
     println!("type ':h' for help");
     println!("");
-    'repl: loop {
-        let s = readln!("$ ");
-        let mut iter = TextIter{
-            iter: s.chars(),
-            line: 0,
-            index: 0
-        };
-        if s.chars().nth(0) == Some(':') {
-            match parse_bfcmd()(&mut iter) {
-                Ok(BFCMD::Exit) => break 'repl,
-                Ok(BFCMD::Read(x)) => println!("#{x}: {}", ctx.memory.get(& x).unwrap_or(& 0)),
-                Ok(BFCMD::Clear) => ctx.memory.clear(),
-                Ok(BFCMD::Help) => display_help(),
-                Ok(BFCMD::Find) => println!("head: #{}", ctx.index),
-                Ok(BFCMD::Move(x)) => ctx.index = x,
-                Err(err) => eprintln!("{}\n...whilst parsing instruction", show_error("".to_string(), & show_info, err)),
-            };
-        } else {
-            match parse_program()(&mut iter) {
-                Ok(is) => run_bfraw(&mut ctx, & is),
-                Err(err) => eprintln!("{}\n...whilst parsing input", show_error("".to_string(), & show_info, err)),
-            };
-        }
-    }
+    while REP(&mut interactor, &mut ctx) {}
 }
