@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 use std::io::Write;
 
 use brainfuck_optimiser::{ interpreter::*, repl::* };
@@ -38,19 +38,22 @@ pub fn main() {
         write_errln: |s| eprintln!("{s}"),
         display_help: display_help
     };
+    let memory = Mutex::new(HashMap::<i32, u8>::new());
     let mut ctx = BFCtx{
         index: 0,
-        memory: HashMap::new(),
         ask: || loop {
             match str::parse::<u8>(readln!("ask: ").as_str()) {
                 Ok(x) => break x,
                 Err(_) => println!("!NaN or not u8"),
             }
         },
-        put: |x| println!("put: {x} ({})", x as char)
+        put: |x| println!("put: {x} ({})", x as char),
+        get: |i| *memory.lock().unwrap().get(& i).unwrap_or(&0),
+        set: |i, x| { memory.lock().unwrap().insert(i, x); },
+        clear: || memory.lock().unwrap().clear()
     };
     println!("Welcome to the brainfuck REPL~ ❤️");
     println!("type ':h' for help");
     println!("");
-    while REP(&mut interactor, &mut ctx) {}
+    while rep(&mut interactor, &mut ctx) {}
 }

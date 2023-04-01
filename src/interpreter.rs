@@ -1,52 +1,68 @@
-use std::collections::HashMap;
-
 use super::BFRaw;
 
-pub struct BFCtx<Ask: FnMut() -> u8, Put: FnMut(u8) -> ()> {
+pub struct BFCtx<
+    Ask: FnMut() -> u8,
+    Put: FnMut(u8) -> (),
+    Get: FnMut(i32) -> u8,
+    Set: FnMut(i32, u8) -> (),
+    Clear: Fn() -> ()
+>{
     pub index: i32,
-    pub memory: HashMap<i32, u8>,
+    pub get: Get,
+    pub set: Set,
     pub ask: Ask,
-    pub put: Put
+    pub put: Put,
+    pub clear: Clear
 }
 
-pub fn run_bfraw_instruction<'a, Ask: FnMut() -> u8, Put: FnMut(u8) -> ()>(
-    ctx: &mut BFCtx<Ask, Put>,
-    i: &'a BFRaw
+pub fn run_bfraw_instruction<
+    Ask: FnMut() -> u8,
+    Put: FnMut(u8) -> (),
+    Get: FnMut(i32) -> u8,
+    Set: FnMut(i32, u8) -> (),
+    Clear: Fn() -> ()
+>(
+    ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>,
+    i: & BFRaw
 )
     -> ()
 {
     match i {
         BFRaw::Lft => ctx.index -= 1,
         BFRaw::Rgh => ctx.index += 1,
-        BFRaw::Inc => if let Some(mem) = ctx.memory.get_mut(& ctx.index) {
-            if *mem == 255 {
-                *mem = 0
+        BFRaw::Inc => {
+            let mem = (ctx.get)(ctx.index);
+            if mem == 255 {
+                (ctx.set)(ctx.index, 0)
             } else {
-                *mem += 1
+                (ctx.set)(ctx.index, mem + 1)
             }
-        } else {
-            ctx.memory.insert(ctx.index, 1);
         },
-        BFRaw::Dec => if let Some(mem) = ctx.memory.get_mut(& ctx.index) {
-            if *mem == 0 {
-                *mem = 255
+        BFRaw::Dec => {
+            let mem = (ctx.get)(ctx.index);
+            if mem == 0 {
+                (ctx.set)(ctx.index, 255)
             } else {
-                *mem -= 1
+                (ctx.set)(ctx.index, mem - 1)
             }
-        } else {
-            ctx.memory.insert(ctx.index, 255);
         },
-        BFRaw::Ask => { ctx.memory.insert(ctx.index, (ctx.ask)()); },
-        BFRaw::Put => (ctx.put)(*ctx.memory.get(& ctx.index).unwrap_or(&0)),
-        BFRaw::Loop(is) => while *ctx.memory.get(& ctx.index).unwrap_or(&0) != 0 {
+        BFRaw::Ask => { (ctx.set)(ctx.index, (ctx.ask)()); },
+        BFRaw::Put => (ctx.put)((ctx.get)(ctx.index)),
+        BFRaw::Loop(is) => while (ctx.get)(ctx.index) != 0 {
             run_bfraw(ctx, is)
         },
     }
 }
 
-pub fn run_bfraw<'a, Ask: FnMut() -> u8, Put: FnMut(u8) -> ()>(
-    ctx: &mut BFCtx<Ask, Put>,
-    is: &'a Vec<BFRaw>
+pub fn run_bfraw<
+    Ask: FnMut() -> u8,
+    Put: FnMut(u8) -> (),
+    Get: FnMut(i32) -> u8,
+    Set: FnMut(i32, u8) -> (),
+    Clear: Fn() -> ()
+>(
+    ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>,
+    is: & Vec<BFRaw>
 )
     -> ()
 {

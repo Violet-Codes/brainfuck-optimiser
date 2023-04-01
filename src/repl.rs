@@ -13,16 +13,19 @@ pub struct ConsoleInteractor<
     pub display_help: DisplayHelp
 }
 
-pub fn REP<
+pub fn rep<
     ReadLn: FnMut(String) -> String,
     WriteLn: FnMut(String) -> (),
     WriteErrLn: FnMut(String) -> (),
     DisplayHelp: FnMut() -> (),
     Ask: FnMut() -> u8,
-    Put: FnMut(u8) -> ()
+    Put: FnMut(u8) -> (),
+    Get: FnMut(i32) -> u8,
+    Set: FnMut(i32, u8) -> (),
+    Clear: Fn() -> ()
 >(
     console_interactor: &mut ConsoleInteractor<ReadLn, WriteLn, WriteErrLn, DisplayHelp>,
-    ctx: &mut BFCtx<Ask, Put>
+    ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>
 )
     -> bool
 {
@@ -36,8 +39,8 @@ pub fn REP<
     if s.chars().nth(0) == Some(':') {
         match parse_bfcmd()(&mut iter) {
             Ok(BFCMD::Exit) => return false,
-            Ok(BFCMD::Read(x)) => (console_interactor.writeln)(format!("#{x}: {}", ctx.memory.get(& x).unwrap_or(& 0))),
-            Ok(BFCMD::Clear) => ctx.memory.clear(),
+            Ok(BFCMD::Read(x)) => (console_interactor.writeln)(format!("#{x}: {}", (ctx.get)(x))),
+            Ok(BFCMD::Clear) => (ctx.clear)(),
             Ok(BFCMD::Help) => (console_interactor.display_help)(),
             Ok(BFCMD::Find) => println!("head: #{}", ctx.index),
             Ok(BFCMD::Move(x)) => ctx.index = x,
