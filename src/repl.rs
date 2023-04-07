@@ -42,7 +42,7 @@ pub fn rep<
             Ok(BFCMD::Read(x)) => (console_interactor.writeln)(format!("#{x}: {}", (ctx.get)(x))),
             Ok(BFCMD::Clear) => (ctx.clear)(),
             Ok(BFCMD::Help) => (console_interactor.display_help)(),
-            Ok(BFCMD::Find) => println!("head: #{}", ctx.index),
+            Ok(BFCMD::Find) => (console_interactor.writeln)(format!("head: #{}", ctx.index)),
             Ok(BFCMD::Move(x)) => ctx.index = x,
             Err(err) => (console_interactor.write_errln)(format!("{}\n...whilst parsing instruction", show_error("".to_string(), & show_info, err))),
         };
