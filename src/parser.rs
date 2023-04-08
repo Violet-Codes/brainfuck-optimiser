@@ -1,6 +1,6 @@
 use nibbler::{ parser, builders::*, errors::*, monadic::*, combinators::*, alternative, select };
 
-use super::BFRaw;
+use super::*;
 
 #[derive(Debug, Clone)]
 pub struct TextInfo{
