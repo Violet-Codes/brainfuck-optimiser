@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, future::Future, pin::Pin};
 
-use crate::interpreter::*;
 use super::*;
+
+pub use crate::interpreter::{BFCtx, AsyncBFCtx};
 
 fn div_u8(x: u8, y: u8) -> Option<u8> {
     if x == 0 { return Some(0); }
@@ -317,6 +318,8 @@ pub fn run_bfoptimised_block<
     -> bool
 {
     match b {
+        OptimisedBlock::Ask => { (ctx.set)(ctx.index, (ctx.ask)()); },
+        OptimisedBlock::Put => (ctx.put)((ctx.get)(ctx.index)),
         OptimisedBlock::AtomicEffect(lines, offset) => {
             let mut lookup = HashMap::<& ProcExpr, u8>::new();
             let mut buffer = HashMap::<i32, u8>::new();
@@ -389,8 +392,13 @@ pub fn run_bfoptimised_block<
             for (k, v) in buffer {
                 (ctx.set)(ctx.index + k, v)
             }
+            ctx.index += offset
         },
-        OptimisedBlock::Loop(blocks) => for b_ in blocks { if !run_bfoptimised_block(ctx, b_) { return false; } },
+        OptimisedBlock::Loop(blocks) => {
+            while (ctx.get)(ctx.index) != 0 {
+                for b_ in blocks { if !run_bfoptimised_block(ctx, b_) { return false; } }
+            }
+        }
     };
     true
 }
@@ -409,6 +417,128 @@ pub fn run_bfoptimised<
 {
     for b in bs {
         if !run_bfoptimised_block(ctx, &b) { return false; }
+    };
+    true
+}
+
+pub fn async_run_bfoptimised_block<
+    'a,
+    AskFuture: Future::<Output=u8>,
+    Ask: FnMut() -> AskFuture,
+    Put: FnMut(u8) -> (),
+    Get: FnMut(i32) -> u8,
+    Set: FnMut(i32, u8) -> (),
+    Clear: Fn() -> ()
+>(
+    ctx: &'a mut AsyncBFCtx<AskFuture, Ask, Put, Get, Set, Clear>,
+    b: &'a OptimisedBlock
+)
+    -> Pin<Box<dyn Future<Output=bool> + 'a>>
+{
+    Box::pin( async move {
+        match b {
+            OptimisedBlock::Ask => { (ctx.set)(ctx.index, (ctx.ask)().await); },
+            OptimisedBlock::Put => (ctx.put)((ctx.get)(ctx.index)),
+            OptimisedBlock::AtomicEffect(lines, offset) => {
+                let mut lookup = HashMap::<& ProcExpr, u8>::new();
+                let mut buffer = HashMap::<i32, u8>::new();
+                fn resolve_inner<
+                    'a,
+                    AskFuture: Future::<Output=u8>,
+                    Ask: FnMut() -> AskFuture,
+                    Put: FnMut(u8) -> (),
+                    Get: FnMut(i32) -> u8,
+                    Set: FnMut(i32, u8) -> (),
+                    Clear: Fn() -> ()
+                >(
+                    lookup: &mut HashMap::<&'a ProcExpr, u8>,
+                    ctx: &mut AsyncBFCtx<AskFuture, Ask, Put, Get, Set, Clear>,
+                    expr: &'a ProcExpr
+                ) -> Option<u8> {
+                    if let Some(x) = lookup.get(expr) {
+                        Some(*x)
+                    } else {
+                        let op_val = match expr {
+                            ProcExpr::Lit(x) => Some(*x),
+                            ProcExpr::Reg(r) => Some((ctx.get)(ctx.index + r)),
+                            ProcExpr::Add(a, b) =>
+                                if let Some(x) = resolve_inner(lookup, ctx, a) {
+                                    if let Some(y) = resolve_inner(lookup, ctx, b) {
+                                        Some(
+                                            x.wrapping_add(y)
+                                        )
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                },
+                            ProcExpr::Mul(a, b) =>
+                                if let Some(x) = resolve_inner(lookup, ctx, a) {
+                                    if let Some(y) = resolve_inner(lookup, ctx, b) {
+                                        Some(
+                                            x.wrapping_mul(y)
+                                        )
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                },
+                            ProcExpr::Into(a, b) => 
+                            if let Some(x) = resolve_inner(lookup, ctx, a) {
+                                if let Some(y) = resolve_inner(lookup, ctx, b) {
+                                    div_u8(y, x)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            },
+                        };
+                        if let Some(val) = op_val {
+                            lookup.insert(expr, val);
+                        }
+                        op_val
+                    }
+                }
+                for line in lines {
+                    if let Some(val) = resolve_inner(&mut lookup, ctx, &line.expr) {
+                        buffer.insert(line.register, val);
+                    } else {
+                        return false;
+                    }
+                }
+                for (k, v) in buffer {
+                    (ctx.set)(ctx.index + k, v)
+                }
+                ctx.index += offset
+            },
+            OptimisedBlock::Loop(blocks) => {
+                while (ctx.get)(ctx.index) != 0 {
+                    for b_ in blocks { if !(async_run_bfoptimised_block(ctx, b_).await) { return false; } }
+                }
+            }
+        };
+        true
+    })
+}
+
+pub async fn async_run_bfoptimised<
+    AskFuture: Future::<Output=u8>,
+    Ask: FnMut() -> AskFuture,
+    Put: FnMut(u8) -> (),
+    Get: FnMut(i32) -> u8,
+    Set: FnMut(i32, u8) -> (),
+    Clear: Fn() -> ()
+>(
+    ctx: &mut AsyncBFCtx<AskFuture, Ask, Put, Get, Set, Clear>,
+    bs: Vec<OptimisedBlock>
+)
+    -> bool
+{
+    for b in bs {
+        if !(async_run_bfoptimised_block(ctx, &b).await) { return false; }
     };
     true
 }

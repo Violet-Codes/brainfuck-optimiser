@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Mutex};
 use std::io::Write;
 
-use brainfuck_optimiser::{ interpreter::*, repl::* };
+use brainfuck_optimiser::optimised::{ *, interpreter::*, repl::* };
 
 macro_rules! readln {
     ($s:expr) => {{
@@ -36,7 +36,8 @@ pub fn main() {
         readln: |s| readln!("{s}"),
         writeln: |s| println!("{s}"),
         write_errln: |s| eprintln!("{s}"),
-        display_help: display_help
+        display_help: display_help,
+        display_optimisation: |bs: &Vec<OptimisedBlock>| println!("{bs:?}")
     };
     let memory = Mutex::new(HashMap::<i32, u8>::new());
     let mut ctx = BFCtx{

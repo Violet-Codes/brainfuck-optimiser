@@ -32,22 +32,8 @@ pub fn run_bfraw_instruction<
     match i {
         BFRaw::Lft => ctx.index -= 1,
         BFRaw::Rgh => ctx.index += 1,
-        BFRaw::Inc => {
-            let mem = (ctx.get)(ctx.index);
-            if mem == 255 {
-                (ctx.set)(ctx.index, 0)
-            } else {
-                (ctx.set)(ctx.index, mem + 1)
-            }
-        },
-        BFRaw::Dec => {
-            let mem = (ctx.get)(ctx.index);
-            if mem == 0 {
-                (ctx.set)(ctx.index, 255)
-            } else {
-                (ctx.set)(ctx.index, mem - 1)
-            }
-        },
+        BFRaw::Inc => (ctx.set)(ctx.index, (ctx.get)(ctx.index).wrapping_add(1)),
+        BFRaw::Dec => (ctx.set)(ctx.index, (ctx.get)(ctx.index).wrapping_add(255)),
         BFRaw::Ask => { (ctx.set)(ctx.index, (ctx.ask)()); },
         BFRaw::Put => (ctx.put)((ctx.get)(ctx.index)),
         BFRaw::Loop(is) => while (ctx.get)(ctx.index) != 0 {
@@ -106,22 +92,8 @@ pub fn async_run_bfraw_instruction<
         match i {
             BFRaw::Lft => ctx.index -= 1,
             BFRaw::Rgh => ctx.index += 1,
-            BFRaw::Inc => {
-                let mem = (ctx.get)(ctx.index);
-                if mem == 255 {
-                    (ctx.set)(ctx.index, 0)
-                } else {
-                    (ctx.set)(ctx.index, mem + 1)
-                }
-            },
-            BFRaw::Dec => {
-                let mem = (ctx.get)(ctx.index);
-                if mem == 0 {
-                    (ctx.set)(ctx.index, 255)
-                } else {
-                    (ctx.set)(ctx.index, mem - 1)
-                }
-            },
+            BFRaw::Inc => (ctx.set)(ctx.index, (ctx.get)(ctx.index).wrapping_add(1)),
+            BFRaw::Dec => (ctx.set)(ctx.index, (ctx.get)(ctx.index).wrapping_add(255)),
             BFRaw::Ask => { (ctx.set)(ctx.index, (ctx.ask)().await); },
             BFRaw::Put => (ctx.put)((ctx.get)(ctx.index)),
             BFRaw::Loop(is) => while (ctx.get)(ctx.index) != 0 {

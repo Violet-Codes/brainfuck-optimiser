@@ -1,7 +1,6 @@
 pub mod interpreter;
 pub mod repl;
 pub mod optimiser;
-pub mod attributes;
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum ProcExpr {
@@ -20,6 +19,8 @@ pub struct ProcAssign {
 
 #[derive(Debug)]
 pub enum OptimisedBlock {
+    Ask,
+    Put,
     AtomicEffect(Vec<ProcAssign>, i32),
     Loop(Vec<OptimisedBlock>)
 }
