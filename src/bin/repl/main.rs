@@ -37,7 +37,7 @@ pub fn main() {
         writeln: |s| println!("{s}"),
         write_errln: |s| eprintln!("{s}"),
         display_help: display_help,
-        display_optimisation: |bs: &Vec<OptimisedBlock>| println!("{bs:?}")
+        display_optimisation: |bs: &Vec<OptimisedBlock>| println!("{}", byte_code_pretty(bs))
     };
     let memory = Mutex::new(HashMap::<i32, u8>::new());
     let mut ctx = BFCtx{
