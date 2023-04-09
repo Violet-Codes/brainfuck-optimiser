@@ -3,292 +3,303 @@ use std::collections::HashMap;
 use super::super::interpreter::*;
 use super::*;
 
-// https://www.wolframalpha.com/input?i=x+*+3+%3D+1+mod+256
-
-fn inv256(x: u8) -> Option<u8> {
-    match x {
-        1 => Some(1),
-        3 => Some(171),
-        5 => Some(205),
-        7 => Some(183),
-        9 => Some(57),
-        11 => Some(163),
-        13 => Some(197),
-        15 => Some(239),
-        17 => Some(241),
-        19 => Some(27),
-        21 => Some(61),
-        23 => Some(167),
-        25 => Some(41),
-        27 => Some(19),
-        29 => Some(53),
-        31 => Some(223),
-        33 => Some(225),
-        35 => Some(139),
-        37 => Some(173),
-        39 => Some(151),
-        41 => Some(25),
-        43 => Some(131),
-        45 => Some(165),
-        47 => Some(207),
-        49 => Some(209),
-        51 => Some(251),
-        53 => Some(29),
-        55 => Some(135),
-        57 => Some(9),
-        59 => Some(243),
-        61 => Some(21),
-        63 => Some(191),
-        65 => Some(193),
-        67 => Some(107),
-        69 => Some(141),
-        71 => Some(119),
-        73 => Some(249),
-        75 => Some(99),
-        77 => Some(133),
-        79 => Some(175),
-        81 => Some(177),
-        83 => Some(219),
-        85 => Some(253),
-        87 => Some(103),
-        89 => Some(233),
-        91 => Some(211),
-        93 => Some(245),
-        95 => Some(159),
-        97 => Some(161),
-        99 => Some(75),
-        101 => Some(109),
-        103 => Some(87),
-        105 => Some(217),
-        107 => Some(67),
-        109 => Some(101),
-        111 => Some(143),
-        113 => Some(145),
-        115 => Some(187),
-        117 => Some(221),
-        119 => Some(71),
-        121 => Some(201),
-        123 => Some(179),
-        125 => Some(213),
-        127 => Some(127),
-        129 => Some(129),
-        131 => Some(43),
-        133 => Some(77),
-        135 => Some(55),
-        137 => Some(185),
-        139 => Some(35),
-        141 => Some(69),
-        143 => Some(111),
-        145 => Some(113),
-        147 => Some(155),
-        149 => Some(189),
-        151 => Some(39),
-        153 => Some(169),
-        155 => Some(147),
-        157 => Some(181),
-        159 => Some(95),
-        161 => Some(97),
-        163 => Some(11),
-        165 => Some(45),
-        167 => Some(23),
-        169 => Some(153),
-        171 => Some(3),
-        173 => Some(37),
-        175 => Some(79),
-        177 => Some(81),
-        179 => Some(123),
-        181 => Some(157),
-        183 => Some(7),
-        185 => Some(137),
-        187 => Some(115),
-        189 => Some(149),
-        191 => Some(63),
-        193 => Some(65),
-        195 => Some(235),
-        197 => Some(13),
-        199 => Some(247),
-        201 => Some(121),
-        203 => Some(227),
-        205 => Some(5),
-        207 => Some(47),
-        209 => Some(49),
-        211 => Some(91),
-        213 => Some(125),
-        215 => Some(231),
-        217 => Some(105),
-        219 => Some(83),
-        221 => Some(117),
-        223 => Some(31),
-        225 => Some(33),
-        227 => Some(203),
-        229 => Some(237),
-        231 => Some(215),
-        233 => Some(89),
-        235 => Some(195),
-        237 => Some(229),
-        239 => Some(15),
-        241 => Some(17),
-        243 => Some(59),
-        245 => Some(93),
-        247 => Some(199),
-        249 => Some(73),
-        251 => Some(51),
-        253 => Some(85),
-        255 => Some(255),
-        _ => None
-    }
-}
-
-fn inv128(x: u8) -> Option<u8> {
-    match x {
-        1 => Some(1),
-        3 => Some(43),
-        5 => Some(77),
-        7 => Some(55),
-        9 => Some(57),
-        11 => Some(35),
-        13 => Some(69),
-        15 => Some(111),
-        17 => Some(113),
-        19 => Some(27),
-        21 => Some(61),
-        23 => Some(39),
-        25 => Some(41),
-        27 => Some(19),
-        29 => Some(53),
-        31 => Some(95),
-        33 => Some(97),
-        35 => Some(11),
-        37 => Some(45),
-        39 => Some(23),
-        41 => Some(25),
-        43 => Some(3),
-        45 => Some(37),
-        47 => Some(79),
-        49 => Some(81),
-        51 => Some(123),
-        53 => Some(29),
-        55 => Some(7),
-        57 => Some(9),
-        59 => Some(115),
-        61 => Some(21),
-        63 => Some(63),
-        65 => Some(65),
-        67 => Some(107),
-        69 => Some(13),
-        71 => Some(119),
-        73 => Some(121),
-        75 => Some(99),
-        77 => Some(5),
-        79 => Some(47),
-        81 => Some(49),
-        83 => Some(91),
-        85 => Some(125),
-        87 => Some(103),
-        89 => Some(105),
-        91 => Some(83),
-        93 => Some(117),
-        95 => Some(31),
-        97 => Some(33),
-        99 => Some(75),
-        101 => Some(109),
-        103 => Some(87),
-        105 => Some(89),
-        107 => Some(67),
-        109 => Some(101),
-        111 => Some(15),
-        113 => Some(17),
-        115 => Some(59),
-        117 => Some(93),
-        119 => Some(71),
-        121 => Some(73),
-        123 => Some(51),
-        125 => Some(85),
-        127 => Some(127),
-        _ => None
-    }
-}
-
-fn div_u8(mut x: u8, mut y: u8) -> Option<u8> {
+fn div_u8(x: u8, y: u8) -> Option<u8> {
     if x == 0 { return Some(0); }
     if y == 0 { return None; }
-    // x, y in 0..256
-    if y % 2 != 0 { return inv256(y).map(|y_| x.wrapping_mul(y_)); }
-    if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..128
-    if y % 2 != 0 { return inv128(y).map(|y_| x.wrapping_mul(y_) % 128); }
-    if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..64
-    // if y % 2 != 0 { return inv64(y).map(|y_| x.wrapping_mul(y_) % 64); }
-    // if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..32
-    // if y % 2 != 0 { return inv32(y).map(|y_| x.wrapping_mul(y_) % 32); }
-    // if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..16
-    // if y % 2 != 0 { return inv16(y).map(|y_| x.wrapping_mul(y_) % 16); }
-    // if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..8
-    // if y % 2 != 0 { return inv8(y).map(|y_| x.wrapping_mul(y_) % 8); }
-    // if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..4
-    // if y % 2 != 0 { return inv4(y).map(|y_| x.wrapping_mul(y_) % 4); }
-    // if x % 2 != 0 { return None; }
-    x >>= 2;
-    y >>= 2;
-    // x, y in 0..2
-    // x == y == 1
-    Some(1)
+    let mut quant: u8 = 0;
+    let mut acc: u8 = 0;
+    // acc = x mod 1
+
+    if acc % 2 != x % 2 { 'digit_0: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_0;
+        }
+        return None;
+    }};
+    // acc = x mod 2
+
+    if acc % 4 != x % 4 { 'digit_1: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_1;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_1;
+        }
+        return None;
+    }};
+    // acc = x mod 4
+
+    if acc % 8 != x % 8 { 'digit_2: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_2;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_2;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_2;
+        }
+        return None;
+    }};
+    // acc = x mod 8
+
+    if acc % 16 != x % 16 { 'digit_3: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_3;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_3;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_3;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_3;
+        }
+        return None;
+    }};
+    // acc = x mod 16
+
+    if acc % 32 != x % 32 { 'digit_4: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_4;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_4;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_4;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_4;
+        }
+        if y % 32 == 16 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_4;
+        }
+        return None;
+    }};
+    // acc = x mod 32
+
+    if acc % 64 != x % 64 { 'digit_5: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 5);
+            quant += 32;
+            break 'digit_5;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_5;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_5;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_5;
+        }
+        if y % 32 == 16 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_5;
+        }
+        if y % 64 == 32 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_5;
+        }
+        return None;
+    }};
+    // acc = x mod 64
+
+    if acc % 128 != x % 128 { 'digit_6: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 6);
+            quant += 64;
+            break 'digit_6;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 5);
+            quant += 32;
+            break 'digit_6;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_6;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_6;
+        }
+        if y % 32 == 16 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_6;
+        }
+        if y % 64 == 32 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_6;
+        }
+        if y % 128 == 64 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_6;
+        }
+        return None;
+    }};
+    // acc = x mod 128
+
+    if acc != x { 'digit_7: {
+        if y % 2 == 1 {
+            // acc = acc.wrapping_add(y << 7);
+            quant += 128;
+            break 'digit_7;
+        }
+        if y % 4 == 2 {
+            // acc = acc.wrapping_add(y << 6);
+            quant += 64;
+            break 'digit_7;
+        }
+        if y % 8 == 4 {
+            // acc = acc.wrapping_add(y << 5);
+            quant += 32;
+            break 'digit_7;
+        }
+        if y % 16 == 8 {
+            // acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_7;
+        }
+        if y % 32 == 16 {
+            // acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_7;
+        }
+        if y % 64 == 32 {
+            // acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_7;
+        }
+        if y % 128 == 64 {
+            // acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_7;
+        }
+        if y == 128 {
+            // acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_7;
+        }
+        return None;
+    }};
+    // acc = x
+
+    return Some(quant);
 }
 
 #[cfg(test)]
 mod tests {
 
     #[test]
-    fn test_inv256() {
-        use crate::optimised::repl::*;
+    fn simple_test_div_u8() {
+        use super::*;
 
-        for x_ in 0..256 {
+        for x_ in 1..256 {
             let x: u8 = x_ as u8;
-            assert_eq!(
-                if x % 2 == 0 {
-                    None
-                } else {
-                    Some(1)
-                },
-                inv256(x).map(|val| x.wrapping_mul(val)),
-                "inv256 failed to invert {x}"
-            );
+
+            for y_ in 1..256 {
+                let y: u8 = y_ as u8;
+
+                if (x as u16) * (y as u16) >= 256 { continue; }
+
+                assert_eq!(
+                    Some(x),
+                    div_u8(x * y, y),
+                    "div_u8 failed to divide {x} * {y} by {y}"
+                )
+            }
         }
     }
 
     #[test]
-    fn test_inv128() {
-        use crate::optimised::repl::*;
-
-        for x_ in 0..128 {
-            let x: u8 = x_ as u8;
-            assert_eq!(
-                if x % 2 == 0 {
-                    None
-                } else {
-                    Some(1)
-                },
-                inv128(x).map(|val| x.wrapping_mul(val) % 128),
-                "inv128 failed to invert {x}"
-            );
+    fn coprime_test_div_u8() {
+        use super::*;
+        
+        fn gcd(mut x: u8, mut y: u8) -> u8 {
+            while y != 0 {
+                let z = x % y;
+                x = y;
+                y = z;
+            }
+            x
         }
+
+        for x_ in 1..256 {
+            let x: u8 = x_ as u8;
+
+            for y_ in 1..256 {
+                let y: u8 = y_ as u8;
+
+                if y % 128 == 0 && x % 128 != 0 { continue; }
+                if y % 64 == 0 && x % 64 != 0 { continue; }
+                if y % 32 == 0 && x % 32 != 0 { continue; }
+                if y % 16 == 0 && x % 16 != 0 { continue; }
+                if y % 8 == 0 && x % 8 != 0 { continue; }
+                if y % 4 == 0 && x % 4 != 0 { continue; }
+                if y % 2 == 0 && x % 2 != 0 { continue; }
+
+                if gcd(x, y) != 0 { continue; }
+
+                assert_eq!(
+                    Some(x),
+                    div_u8(x.wrapping_mul(y), y),
+                    "div_u8 failed to divide {x} * {y} by {y}"
+                )
+            }
+        }
+    }
+
+    #[test]
+    fn case_test_div_u8() {
+        use super::*;
+
+        assert_eq!(Some(52), div_u8(4, 5));
     }
 }
 
