@@ -1,354 +1,63 @@
-use std::collections::HashMap;
+//use std::future::Future;
 
-use super::super::interpreter::*;
-use super::*;
+use nibbler::errors::show_error;
+use crate::{ parser::*, interpreter::* };
 
-fn div_u8(x: u8, y: u8) -> Option<u8> {
-    if x == 0 { return Some(0); }
-    if y == 0 { return None; }
-    let mut quant: u8 = 0;
-    let mut acc: u8 = 0;
-    // acc = x mod 1
+use super::{ *, optimiser::* };
 
-    if acc % 2 != x % 2 { 'digit_0: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_0;
-        }
-        return None;
-    }};
-    // acc = x mod 2
-
-    if acc % 4 != x % 4 { 'digit_1: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_1;
-        }
-        if y % 4 == 2 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_1;
-        }
-        return None;
-    }};
-    // acc = x mod 4
-
-    if acc % 8 != x % 8 { 'digit_2: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 2);
-            quant += 4;
-            break 'digit_2;
-        }
-        if y % 4 == 2 {
-            acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_2;
-        }
-        if y % 8 == 4 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_2;
-        }
-        return None;
-    }};
-    // acc = x mod 8
-
-    if acc % 16 != x % 16 { 'digit_3: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 3);
-            quant += 8;
-            break 'digit_3;
-        }
-        if y % 4 == 2 {
-            acc = acc.wrapping_add(y << 2);
-            quant += 4;
-            break 'digit_3;
-        }
-        if y % 8 == 4 {
-            acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_3;
-        }
-        if y % 16 == 8 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_3;
-        }
-        return None;
-    }};
-    // acc = x mod 16
-
-    if acc % 32 != x % 32 { 'digit_4: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 4);
-            quant += 16;
-            break 'digit_4;
-        }
-        if y % 4 == 2 {
-            acc = acc.wrapping_add(y << 3);
-            quant += 8;
-            break 'digit_4;
-        }
-        if y % 8 == 4 {
-            acc = acc.wrapping_add(y << 2);
-            quant += 4;
-            break 'digit_4;
-        }
-        if y % 16 == 8 {
-            acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_4;
-        }
-        if y % 32 == 16 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_4;
-        }
-        return None;
-    }};
-    // acc = x mod 32
-
-    if acc % 64 != x % 64 { 'digit_5: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 5);
-            quant += 32;
-            break 'digit_5;
-        }
-        if y % 4 == 2 {
-            acc = acc.wrapping_add(y << 4);
-            quant += 16;
-            break 'digit_5;
-        }
-        if y % 8 == 4 {
-            acc = acc.wrapping_add(y << 3);
-            quant += 8;
-            break 'digit_5;
-        }
-        if y % 16 == 8 {
-            acc = acc.wrapping_add(y << 2);
-            quant += 4;
-            break 'digit_5;
-        }
-        if y % 32 == 16 {
-            acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_5;
-        }
-        if y % 64 == 32 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_5;
-        }
-        return None;
-    }};
-    // acc = x mod 64
-
-    if acc % 128 != x % 128 { 'digit_6: {
-        if y % 2 == 1 {
-            acc = acc.wrapping_add(y << 6);
-            quant += 64;
-            break 'digit_6;
-        }
-        if y % 4 == 2 {
-            acc = acc.wrapping_add(y << 5);
-            quant += 32;
-            break 'digit_6;
-        }
-        if y % 8 == 4 {
-            acc = acc.wrapping_add(y << 4);
-            quant += 16;
-            break 'digit_6;
-        }
-        if y % 16 == 8 {
-            acc = acc.wrapping_add(y << 3);
-            quant += 8;
-            break 'digit_6;
-        }
-        if y % 32 == 16 {
-            acc = acc.wrapping_add(y << 2);
-            quant += 4;
-            break 'digit_6;
-        }
-        if y % 64 == 32 {
-            acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_6;
-        }
-        if y % 128 == 64 {
-            acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_6;
-        }
-        return None;
-    }};
-    // acc = x mod 128
-
-    if acc != x { 'digit_7: {
-        if y % 2 == 1 {
-            // acc = acc.wrapping_add(y << 7);
-            quant += 128;
-            break 'digit_7;
-        }
-        if y % 4 == 2 {
-            // acc = acc.wrapping_add(y << 6);
-            quant += 64;
-            break 'digit_7;
-        }
-        if y % 8 == 4 {
-            // acc = acc.wrapping_add(y << 5);
-            quant += 32;
-            break 'digit_7;
-        }
-        if y % 16 == 8 {
-            // acc = acc.wrapping_add(y << 4);
-            quant += 16;
-            break 'digit_7;
-        }
-        if y % 32 == 16 {
-            // acc = acc.wrapping_add(y << 3);
-            quant += 8;
-            break 'digit_7;
-        }
-        if y % 64 == 32 {
-            // acc = acc.wrapping_add(y << 2);
-            quant += 4;
-            break 'digit_7;
-        }
-        if y % 128 == 64 {
-            // acc = acc.wrapping_add(y << 1);
-            quant += 2;
-            break 'digit_7;
-        }
-        if y == 128 {
-            // acc = acc.wrapping_add(y << 0);
-            quant += 1;
-            break 'digit_7;
-        }
-        return None;
-    }};
-    // acc = x
-
-    return Some(quant);
+pub struct ConsoleInteractor<
+    ReadLn: FnMut(String) -> String,
+    WriteLn: FnMut(String) -> (),
+    WriteErrLn: FnMut(String) -> (),
+    DisplayHelp: FnMut() -> (),
+    DisplayOptimisation: FnMut(Vec<OptimisedBlock>) -> () // may need to take in a different type
+>{
+    pub readln: ReadLn,
+    pub writeln: WriteLn,
+    pub write_errln: WriteErrLn,
+    pub display_help: DisplayHelp,
+    pub display_optimisation: DisplayOptimisation
 }
 
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn simple_test_div_u8() {
-        use super::*;
-
-        for x_ in 1..256 {
-            let x: u8 = x_ as u8;
-
-            for y_ in 1..256 {
-                let y: u8 = y_ as u8;
-
-                if (x as u16) * (y as u16) >= 256 { continue; }
-
-                assert_eq!(
-                    Some(x),
-                    div_u8(x * y, y),
-                    "div_u8 failed to divide {x} * {y} by {y}"
-                )
-            }
-        }
-    }
-
-    #[test]
-    fn coprime_test_div_u8() {
-        use super::*;
-        
-        fn gcd(mut x: u8, mut y: u8) -> u8 {
-            while y != 0 {
-                let z = x % y;
-                x = y;
-                y = z;
-            }
-            x
-        }
-
-        for x_ in 1..256 {
-            let x: u8 = x_ as u8;
-
-            for y_ in 1..256 {
-                let y: u8 = y_ as u8;
-
-                if y % 128 == 0 && x % 128 != 0 { continue; }
-                if y % 64 == 0 && x % 64 != 0 { continue; }
-                if y % 32 == 0 && x % 32 != 0 { continue; }
-                if y % 16 == 0 && x % 16 != 0 { continue; }
-                if y % 8 == 0 && x % 8 != 0 { continue; }
-                if y % 4 == 0 && x % 4 != 0 { continue; }
-                if y % 2 == 0 && x % 2 != 0 { continue; }
-
-                if gcd(x, y) != 0 { continue; }
-
-                assert_eq!(
-                    Some(x),
-                    div_u8(x.wrapping_mul(y), y),
-                    "div_u8 failed to divide {x} * {y} by {y}"
-                )
-            }
-        }
-    }
-
-    #[test]
-    fn case_test_div_u8() {
-        use super::*;
-
-        assert_eq!(Some(52), div_u8(4, 5));
-    }
-}
-
-pub fn run_bfoptimised_block<
+pub fn rep<
+    ReadLn: FnMut(String) -> String,
+    WriteLn: FnMut(String) -> (),
+    WriteErrLn: FnMut(String) -> (),
+    DisplayHelp: FnMut() -> (),
+    DisplayOptimisation: FnMut(Vec<OptimisedBlock>) -> (),
     Ask: FnMut() -> u8,
     Put: FnMut(u8) -> (),
     Get: FnMut(i32) -> u8,
     Set: FnMut(i32, u8) -> (),
     Clear: Fn() -> ()
 >(
-    ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>,
-    b: & OptimisedBlock
+    console_interactor: &mut ConsoleInteractor<ReadLn, WriteLn, WriteErrLn, DisplayHelp, DisplayOptimisation>,
+    ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>
 )
-    -> ()
+    -> bool
 {
-    match b {
-        OptimisedBlock::AtomicEffect(lines, offset) => {
-            let mut lookup = HashMap::<& ProcExpr, u8>::new();
-            fn resolve_inner<
-                'a,
-                Ask: FnMut() -> u8,
-                Put: FnMut(u8) -> (),
-                Get: FnMut(i32) -> u8,
-                Set: FnMut(i32, u8) -> (),
-                Clear: Fn() -> ()
-            >(
-                lookup: &mut HashMap::<&'a ProcExpr, u8>,
-                ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>,
-                expr: &'a ProcExpr
-            ) -> u8 {
-                if let Some(x) = lookup.get(expr) {
-                    *x
-                } else {
-                    let val = match expr {
-                        ProcExpr::Lit(x) => *x,
-                        ProcExpr::Reg(r) => (ctx.get)(ctx.index + r),
-                        ProcExpr::Add(a, b) =>
-                            (resolve_inner(lookup, ctx, a))
-                            .wrapping_add(resolve_inner(lookup, ctx, b)),
-                        ProcExpr::Mul(a, b) =>
-                            (resolve_inner(lookup, ctx, a))
-                            .wrapping_add(resolve_inner(lookup, ctx, b)),
-                        ProcExpr::Into(_, _) => todo!(),
-                    };
-                    lookup.insert(expr, val);
-                    val
-                }
-            }
-        },
-        OptimisedBlock::Loop(blocks) => for b_ in blocks { run_bfoptimised_block(ctx, b_) },
-    }
+    let show_info = |info: TextInfo| format!("at {}:{}", info.line, info.index);
+    let s = (console_interactor.readln)("$ ".to_string());
+    let mut iter = TextIter{
+        iter: s.chars(),
+        line: 0,
+        index: 0
+    };
+    if s.chars().nth(0) == Some(':') {
+        match parse_bfcmd()(&mut iter) {
+            Ok(BFCMD::Exit) => return false,
+            Ok(BFCMD::Read(x)) => (console_interactor.writeln)(format!("#{x}: {}", (ctx.get)(x))),
+            Ok(BFCMD::Clear) => (ctx.clear)(),
+            Ok(BFCMD::Help) => (console_interactor.display_help)(),
+            Ok(BFCMD::Find) => (console_interactor.writeln)(format!("head: #{}", ctx.index)),
+            Ok(BFCMD::Move(x)) => ctx.index = x,
+            Err(err) => (console_interactor.write_errln)(format!("{}\n...whilst parsing instruction", show_error("".to_string(), & show_info, err))),
+        };
+    } else {
+        match parse_program()(&mut iter) {
+            Ok(is) => run_bfraw(ctx, & is),
+            Err(err) => (console_interactor.write_errln)(format!("{}\n...whilst parsing input", show_error("".to_string(), & show_info, err))),
+        };
+    };
+    true
 }

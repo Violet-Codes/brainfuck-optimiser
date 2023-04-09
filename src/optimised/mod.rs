@@ -1,3 +1,4 @@
+pub mod interpreter;
 pub mod repl;
 pub mod optimiser;
 pub mod attributes;

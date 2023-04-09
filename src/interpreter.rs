@@ -1,6 +1,6 @@
 use std::{future::Future, pin::Pin};
 
-use super::BFRaw;
+use super::*;
 
 pub struct BFCtx<
     Ask: FnMut() -> u8,
