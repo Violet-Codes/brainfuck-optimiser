@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeMap};
 use std::rc::Rc;
 
 use crate::*;
@@ -161,62 +161,130 @@ fn try_merge(
     }
 }
 
-enum IterChain<T> {
-    Single(std::vec::IntoIter<T>),
-    Chain(Box<IterChain<T>>, Box<IterChain<T>>),
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct Multinomial{
+    coefficients: HashMap<BTreeMap<Rc<ProcExpr>, u32>, u8>,
+    symbols: HashSet<Rc<ProcExpr>>
 }
 
-impl<T> Iterator for IterChain<T> {
-    type Item = T;
+impl Multinomial {
+    pub fn symbol(expr: Rc<ProcExpr>) -> Multinomial {
+        let mut res = Multinomial::default();
+        let mut map: BTreeMap<Rc<ProcExpr>, u32> = BTreeMap::new();
+        map.insert(expr.clone(), 1);
+        res.coefficients.insert(map, 1);
+        res
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            IterChain::Single(ref mut iter) => iter.next(),
-            IterChain::Chain(ref mut lft, ref mut rgh) => {
-                if let Some(val) = lft.next() {
-                    Some(val)
-                } else {
-                    unsafe {
-                        *self = std::ptr::read(rgh.as_mut());
-                    }
-                    self.next()
-                }
+    pub fn value(x: u8) -> Multinomial {
+        let mut res = Multinomial::default();
+        if x == 0 { return res; }
+        res.coefficients.insert(BTreeMap::new(), x);
+        res
+    }
+
+    fn _reduce(self) -> Multinomial {
+        let mut res = Multinomial::default();
+        res.coefficients = self.coefficients.into_iter().filter(|(_, x)| x != &0).collect();
+        res
+    }
+
+    fn _gen_symbols(&mut self) -> () {
+        for (term, _) in self.coefficients.iter() {
+            for (symbol, _) in term {
+                self.symbols.insert(symbol.clone());
             }
         }
     }
-}
 
-fn get_registers(
-    expr: Rc<ProcExpr>
-)
-    -> HashSet<i32>
-{
-    fn get_registers_inner(
-        expr: Rc<ProcExpr>,
-        set: &mut HashSet<i32>
-    )
-        -> ()
-    {
-        match expr.as_ref() {
-            ProcExpr::Reg(r) => { set.insert(*r); },
-            ProcExpr::Add(a, b) => {
-                get_registers_inner(a.clone(), set);
-                get_registers_inner(b.clone(), set);
-            },
-            ProcExpr::Mul(a, b) => {
-                get_registers_inner(a.clone(), set);
-                get_registers_inner(b.clone(), set);
-            },
-            ProcExpr::Into(a, b) => {
-                get_registers_inner(a.clone(), set);
-                get_registers_inner(b.clone(), set);
-            },
-            ProcExpr::Lit(_) => ()
+    pub fn add(&self, other: &Self) -> Multinomial {
+        let mut res = Multinomial::default();
+        let self_terms = self.coefficients.keys().collect::<HashSet<&BTreeMap<Rc<ProcExpr>, u32>>>();
+        let other_terms = other.coefficients.keys().collect::<HashSet<&BTreeMap<Rc<ProcExpr>, u32>>>();
+        for term in self_terms.union(&other_terms).map(|map| (*map).clone()) {
+            let coefficient = self.coefficients.get(&term).unwrap_or(&0).wrapping_add(*other.coefficients.get(&term).unwrap_or(&0));
+            res.coefficients.insert(
+                term,
+                coefficient
+            );
+        }
+        res = res._reduce();
+        res._gen_symbols();
+        res
+    }
+
+    pub fn mul(&self, other: &Self) -> Multinomial {
+        let mut res = Multinomial::default();
+        for (self_term, self_coefficient) in self.coefficients.iter() {
+            for (other_term, other_coefficient) in other.coefficients.iter() {
+                let mut term = BTreeMap::new();
+                for (symbol, power) in self_term {
+                    term.insert(symbol.clone(), term.get(symbol).unwrap_or(&0) + power);
+                }
+                for (symbol, power) in other_term {
+                    term.insert(symbol.clone(), term.get(symbol).unwrap_or(&0) + power);
+                }
+                let coefficient = res.coefficients.get(&term).unwrap_or(&0).wrapping_add(self_coefficient.wrapping_mul(*other_coefficient));
+                res.coefficients.insert(term, coefficient);
+            }
+        }
+        res = res._reduce();
+        res._gen_symbols();
+        res
+    }
+
+    pub fn as_val(&self) -> Rc<ProcExpr> {
+        let mut coefficients = self.coefficients.iter();
+        if let Some((term, coefficient)) = coefficients.next() {
+            fn as_prod(term: &BTreeMap<Rc<ProcExpr>, u32>, coefficient: &u8) -> Rc<ProcExpr> {
+                let mut expr = Rc::new(ProcExpr::Lit(*coefficient));
+                for (symbol, power) in term {
+                    for _ in 0..*power {
+                        expr = Rc::new(ProcExpr::Mul(expr, symbol.clone()))
+                    }
+                }
+                expr
+            }
+            let mut expr = as_prod(term, coefficient);
+            for (term, coefficient) in coefficients {
+                expr = Rc::new(ProcExpr::Add(expr, as_prod(term, coefficient)))
+            }
+            expr
+        } else {
+            Rc::new(ProcExpr::Lit(0))
         }
     }
-    let mut set = HashSet::new();
-    get_registers_inner(expr, &mut set);
-    return set
+}
+
+fn reduce(
+    expr: Rc<ProcExpr>
+)
+    -> Rc<ProcExpr>
+{
+    fn reduce_to_multinomial(
+        expr: Rc<ProcExpr>
+    )
+        -> Multinomial
+    {
+        match expr.as_ref() {
+            ProcExpr::Lit(x) => Multinomial::value(*x),
+            ProcExpr::Reg(_) => Multinomial::symbol(expr),
+            ProcExpr::Add(a, b) => reduce_to_multinomial(a.clone()).add(& reduce_to_multinomial(b.clone())),
+            ProcExpr::Mul(a, b) => reduce_to_multinomial(a.clone()).mul(& reduce_to_multinomial(b.clone())),
+            ProcExpr::Into(a, b) => {
+                let expr_a = reduce(a.clone());
+                let expr_b = reduce(b.clone());
+                if expr_b.as_ref() == &ProcExpr::Lit(0) {
+                    return Multinomial::default();
+                }
+                if expr_a.as_ref() == &ProcExpr::Lit(1) {
+                    return reduce_to_multinomial(expr_b);
+                }
+                Multinomial::symbol(Rc::new(ProcExpr::Into(expr_a, expr_b)))
+            },
+        }
+    }
+    reduce_to_multinomial(expr).as_val()
 }
 
 fn try_loop_optimise(
@@ -224,32 +292,145 @@ fn try_loop_optimise(
 )
     -> Option<OptimisedBlock>
 {
-    fn is_independent(
-        r: i32,
+    fn registers(
         expr: Rc<ProcExpr>
     )
-        -> bool
+        -> HashSet<i32>
     {
         match expr.as_ref() {
-            ProcExpr::Lit(_) => true,
-            ProcExpr::Reg(s) => r != *s,
-            ProcExpr::Add(a, b) => is_independent(r, a.clone()) && is_independent(r, b.clone()),
-            ProcExpr::Mul(a, b) => is_independent(r, a.clone()) && is_independent(r, b.clone()),
-            ProcExpr::Into(a, b) => is_independent(r, a.clone()) && is_independent(r, b.clone()),
+            ProcExpr::Lit(_) => HashSet::new(),
+            ProcExpr::Reg(r) => {
+                let mut set = HashSet::new();
+                set.insert(*r);
+                set
+            },
+            ProcExpr::Add(a, b) => registers(a.clone()).union(&registers(b.clone())).map(|r| r.clone()).collect(),
+            ProcExpr::Mul(a, b) => registers(a.clone()).union(&registers(b.clone())).map(|r| r.clone()).collect(),
+            ProcExpr::Into(a, b) => registers(a.clone()).union(&registers(b.clone())).map(|r| r.clone()).collect(),
         }
     }
 
     match b {
         OptimisedBlock::AtomicEffect(lines, 0) => {
             let Some(index_expr) = lines.get(& 0) else { return None; };
-            //check if effect on ~#0 has a precalculatable number of itterations
+            let subtraction = reduce(
+                Rc::new(ProcExpr::Add(
+                    Rc::new(ProcExpr::Reg(0)),
+                    Rc::new(ProcExpr::Mul(
+                        Rc::new(ProcExpr::Lit(255)),
+                        index_expr.clone()
+                    ))
+                ))
+            );
+
+            let mut new_lines = HashMap::<i32, Rc<ProcExpr>>::new();
+
+            let cycles = Rc::new(ProcExpr::Into(
+                subtraction.clone(),
+                Rc::new(ProcExpr::Reg(0))
+            ));
+            
+            let rs = registers(subtraction);
             for register in lines.keys() {
-                if *register != 0 && !is_independent(*register, index_expr.clone()) { return None; }
+                if rs.contains(register) { return None; }
             }
-            todo!()
+
+            new_lines.insert(0, Rc::new(ProcExpr::Lit(0)));
+
+            for (r, expr) in lines {
+                let addition = reduce(
+                    Rc::new(ProcExpr::Add(
+                        expr.clone(),
+                        Rc::new(ProcExpr::Mul(
+                            Rc::new(ProcExpr::Lit(255)),
+                            Rc::new(ProcExpr::Reg(*r))
+                        ))
+                    ))
+                );
+                if *r == 0 { continue }
+                let rs = registers(addition.clone());
+                for register in lines.keys() {
+                    if rs.contains(register) { return None; }
+                }
+
+                new_lines.insert(*r, Rc::new(ProcExpr::Add(
+                    Rc::new(ProcExpr::Reg(*r)),
+                    Rc::new(ProcExpr::Mul(
+                        cycles.clone(),
+                        addition
+                    ))
+                )));
+            }
+            Some(OptimisedBlock::AtomicEffect(new_lines, 0))
         }
         _ => None
     }
+}
+
+fn merge_all(
+    bs: Vec<OptimisedBlock>
+)
+    -> Vec<OptimisedBlock>
+{
+    let mut new_bs: Vec<OptimisedBlock> = vec![];
+    let mut iter_bs = bs.into_iter();
+    while let Some(mut a) = iter_bs.next() {
+        let mut b_ = None;
+        'inner: while let Some(b) = iter_bs.next() {
+            if let Some(c) = try_merge(&a, &b) {
+                a = c
+            } else {
+                b_ = Some(b);
+                break 'inner
+            }
+        }
+        new_bs.push(a);
+        if let Some(b) = b_ { new_bs.push(b); }
+    };
+    new_bs
+}
+
+fn reduce_all(
+    bs: Vec<OptimisedBlock>
+)
+    ->  Vec<OptimisedBlock>
+{
+    bs.into_iter().map(|b| match b {
+        OptimisedBlock::AtomicEffect(lines, i) => OptimisedBlock::AtomicEffect(
+            lines.into_iter().map(|(r, expr)| (r, reduce(expr))).collect(),
+            i
+        ),
+        _ => b
+    }).collect()
+}
+
+fn optimise_loops(
+    bs: Vec<OptimisedBlock>
+)
+    ->  Vec<OptimisedBlock>
+{
+    bs.into_iter().map(|b| match b {
+        OptimisedBlock::Loop(bs_) => {
+            let optimised_bs_ = optimise(bs_);
+            if optimised_bs_.len() == 1 {
+                try_loop_optimise(optimised_bs_.first().unwrap()).unwrap_or(OptimisedBlock::Loop(optimised_bs_))
+            } else {
+                OptimisedBlock::Loop(optimised_bs_)
+            }
+        },
+        _ => b
+    }).collect()
+}
+
+fn optimise(
+    mut bs: Vec<OptimisedBlock>
+)
+    ->  Vec<OptimisedBlock>
+{
+    bs = optimise_loops(bs);
+    bs = merge_all(bs);
+    bs = reduce_all(bs);
+    bs
 }
 
 pub fn optimising_convert(
@@ -257,5 +438,5 @@ pub fn optimising_convert(
 )
     -> Vec<OptimisedBlock>
 {
-    convert(raw)
+    optimise(convert(raw))
 }

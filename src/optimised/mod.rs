@@ -5,7 +5,7 @@ pub mod interpreter;
 pub mod repl;
 pub mod optimiser;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialOrd, Ord, PartialEq, Eq, Clone)]
 pub enum ProcExpr {
     Lit(u8),
     Reg(i32),
