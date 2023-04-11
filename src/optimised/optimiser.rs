@@ -102,7 +102,7 @@ fn try_merge(
     {
         Rc::new(match x.as_ref() {
             ProcExpr::Reg(r) => ProcExpr::Reg(r + s),
-            ProcExpr::Lit(v) => ProcExpr::Lit(v.clone()),
+            ProcExpr::Lit(v) => ProcExpr::Lit(*v),
             ProcExpr::Add(a, b) => ProcExpr::Add(
                 shift(s, a.clone()),
                 shift(s, b.clone())
@@ -117,6 +117,7 @@ fn try_merge(
             )
         })
     }
+
     pub fn replace(
         s: i32,
         x: Rc<ProcExpr>,
@@ -124,41 +125,35 @@ fn try_merge(
     )
         -> Rc<ProcExpr>
     {
-        Rc::new(match y.as_ref() {
-            ProcExpr::Reg(r) => ProcExpr::Reg(r + s),
-            ProcExpr::Lit(v) => ProcExpr::Lit(v.clone()),
-            ProcExpr::Add(a, b) => ProcExpr::Add(
+        match y.as_ref() {
+            ProcExpr::Reg(r) => if *r == s { x } else { Rc::new(ProcExpr::Reg(*r)) },
+            ProcExpr::Lit(v) => Rc::new(ProcExpr::Lit(*v)),
+            ProcExpr::Add(a, b) => Rc::new(ProcExpr::Add(
                 replace(s, x.clone(), a.clone()),
                 replace(s, x.clone(), b.clone())
-            ),
-            ProcExpr::Mul(a, b) => ProcExpr::Mul(
+            )),
+            ProcExpr::Mul(a, b) => Rc::new(ProcExpr::Mul(
                 replace(s, x.clone(), a.clone()),
                 replace(s, x.clone(), b.clone())
-            ),
-            ProcExpr::Into(a, b) => ProcExpr::Into(
+            )),
+            ProcExpr::Into(a, b) => Rc::new(ProcExpr::Into(
                 replace(s, x.clone(), a.clone()),
                 replace(s, x.clone(), b.clone())
-            )
-        })
+            ))
+        }
     }
 
-    if let OptimisedBlock::AtomicEffect(xs, i) = a {
-        if let OptimisedBlock::AtomicEffect(ys, j) = b {
-            let mut new_xs: HashMap<i32, Rc<ProcExpr>> = xs.clone();
-            let mut new_ys: HashMap<i32, Rc<ProcExpr>> = ys.iter().map(|(register, expr)| (register - i, shift(-i, expr.clone()))).collect();
-            for (key_x, expr_x) in new_xs.iter() {
-                for (_, expr_y) in new_ys.iter_mut() {
-                    *expr_y = replace(*key_x, expr_x.clone(), expr_y.clone());
-                }
-            }
-            new_xs.extend(new_ys.into_iter());
-            Some(OptimisedBlock::AtomicEffect(new_xs, i + j))
-        } else {
-            None
+    let OptimisedBlock::AtomicEffect(xs, i) = a else { return None; };
+    let OptimisedBlock::AtomicEffect(ys, j) = b else { return None; };
+    let mut new_xs: HashMap<i32, Rc<ProcExpr>> = xs.clone();
+    let mut new_ys: HashMap<i32, Rc<ProcExpr>> = ys.iter().map(|(register, expr)| (register + i, shift(*i, expr.clone()))).collect();
+    for (key_x, expr_x) in new_xs.iter() {
+        for (_, expr_y) in new_ys.iter_mut() {
+            *expr_y = replace(*key_x, expr_x.clone(), expr_y.clone());
         }
-    } else {
-        None
     }
+    new_xs.extend(new_ys.into_iter());
+    Some(OptimisedBlock::AtomicEffect(new_xs, i + j))
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -243,6 +238,11 @@ impl Multinomial {
                         expr = Rc::new(ProcExpr::Mul(expr, symbol.clone()))
                     }
                 }
+                if *coefficient == 1 {
+                    if let ProcExpr::Mul(_, e) = expr.as_ref() {
+                        return e.clone();
+                    }
+                }
                 expr
             }
             let mut expr = as_prod(term, coefficient);
@@ -280,7 +280,16 @@ fn reduce(
                 if expr_a.as_ref() == &ProcExpr::Lit(1) {
                     return reduce_to_multinomial(expr_b);
                 }
-                Multinomial::symbol(Rc::new(ProcExpr::Into(expr_a, expr_b)))
+                let ProcExpr::Lit(a_) = expr_a.as_ref() else {
+                    return Multinomial::symbol(Rc::new(ProcExpr::Into(expr_a, expr_b)));
+                };
+                let ProcExpr::Lit(b_) = expr_b.as_ref() else {
+                    return Multinomial::symbol(Rc::new(ProcExpr::Into(expr_a, expr_b)));
+                };
+                let Some(c) = div_u8(*b_, *a_) else {
+                    return Multinomial::symbol(Rc::new(ProcExpr::Into(expr_a, expr_b)));
+                };
+                Multinomial::symbol(Rc::new(ProcExpr::Lit(c)))
             },
         }
     }
@@ -372,22 +381,19 @@ fn merge_all(
 )
     -> Vec<OptimisedBlock>
 {
-    let mut new_bs: Vec<OptimisedBlock> = vec![];
     let mut iter_bs = bs.into_iter();
-    while let Some(mut a) = iter_bs.next() {
-        let mut b_ = None;
-        'inner: while let Some(b) = iter_bs.next() {
-            if let Some(c) = try_merge(&a, &b) {
-                a = c
-            } else {
-                b_ = Some(b);
-                break 'inner
-            }
-        }
-        new_bs.push(a);
-        if let Some(b) = b_ { new_bs.push(b); }
+    let Some(a) = iter_bs.next() else { return vec![]; };
+    let Some(b) = iter_bs.next() else { return vec![a]; };
+    let Some(c) = try_merge(&a, &b) else {
+        let mut from_a = vec![a];
+        let mut from_b = vec![b];
+        from_b.extend(iter_bs);
+        from_a.extend(merge_all(from_b).into_iter());
+        return from_a;
     };
-    new_bs
+    let mut from_c = vec![c];
+    from_c.extend(iter_bs);
+    merge_all(from_c)
 }
 
 fn reduce_all(

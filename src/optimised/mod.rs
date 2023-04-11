@@ -83,3 +83,234 @@ impl fmt::Display for OptimisedBlock {
 pub fn byte_code_pretty(bs: & Vec<OptimisedBlock>) -> String {
     join_strings(bs.iter().map(|line| format!("{line}")))
 }
+
+fn div_u8(x: u8, y: u8) -> Option<u8> {
+    if x == 0 { return Some(0); }
+    if y == 0 { return None; }
+
+    let mut quant: u8 = 0;
+    let mut acc: u8 = 0;
+    // acc = x mod 1
+
+    if acc % 2 != x % 2 { 'digit_0: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_0;
+        }
+        return None;
+    }};
+    // acc = x mod 2
+
+    if acc % 4 != x % 4 { 'digit_1: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_1;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_1;
+        }
+        return None;
+    }};
+    // acc = x mod 4
+
+    if acc % 8 != x % 8 { 'digit_2: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_2;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_2;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_2;
+        }
+        return None;
+    }};
+    // acc = x mod 8
+
+    if acc % 16 != x % 16 { 'digit_3: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_3;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_3;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_3;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_3;
+        }
+        return None;
+    }};
+    // acc = x mod 16
+
+    if acc % 32 != x % 32 { 'digit_4: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_4;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_4;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_4;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_4;
+        }
+        if y % 32 == 16 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_4;
+        }
+        return None;
+    }};
+    // acc = x mod 32
+
+    if acc % 64 != x % 64 { 'digit_5: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 5);
+            quant += 32;
+            break 'digit_5;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_5;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_5;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_5;
+        }
+        if y % 32 == 16 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_5;
+        }
+        if y % 64 == 32 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_5;
+        }
+        return None;
+    }};
+    // acc = x mod 64
+
+    if acc % 128 != x % 128 { 'digit_6: {
+        if y % 2 == 1 {
+            acc = acc.wrapping_add(y << 6);
+            quant += 64;
+            break 'digit_6;
+        }
+        if y % 4 == 2 {
+            acc = acc.wrapping_add(y << 5);
+            quant += 32;
+            break 'digit_6;
+        }
+        if y % 8 == 4 {
+            acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_6;
+        }
+        if y % 16 == 8 {
+            acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_6;
+        }
+        if y % 32 == 16 {
+            acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_6;
+        }
+        if y % 64 == 32 {
+            acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_6;
+        }
+        if y % 128 == 64 {
+            acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_6;
+        }
+        return None;
+    }};
+    // acc = x mod 128
+
+    if acc != x { 'digit_7: {
+        if y % 2 == 1 {
+            // acc = acc.wrapping_add(y << 7);
+            quant += 128;
+            break 'digit_7;
+        }
+        if y % 4 == 2 {
+            // acc = acc.wrapping_add(y << 6);
+            quant += 64;
+            break 'digit_7;
+        }
+        if y % 8 == 4 {
+            // acc = acc.wrapping_add(y << 5);
+            quant += 32;
+            break 'digit_7;
+        }
+        if y % 16 == 8 {
+            // acc = acc.wrapping_add(y << 4);
+            quant += 16;
+            break 'digit_7;
+        }
+        if y % 32 == 16 {
+            // acc = acc.wrapping_add(y << 3);
+            quant += 8;
+            break 'digit_7;
+        }
+        if y % 64 == 32 {
+            // acc = acc.wrapping_add(y << 2);
+            quant += 4;
+            break 'digit_7;
+        }
+        if y % 128 == 64 {
+            // acc = acc.wrapping_add(y << 1);
+            quant += 2;
+            break 'digit_7;
+        }
+        if y == 128 {
+            // acc = acc.wrapping_add(y << 0);
+            quant += 1;
+            break 'digit_7;
+        }
+        return None;
+    }};
+    // acc = x
+
+    return Some(quant);
+}
