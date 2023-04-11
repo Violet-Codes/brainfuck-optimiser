@@ -321,9 +321,8 @@ pub fn run_bfoptimised_block<
         OptimisedBlock::Ask => { (ctx.set)(ctx.index, (ctx.ask)()); },
         OptimisedBlock::Put => (ctx.put)((ctx.get)(ctx.index)),
         OptimisedBlock::AtomicEffect(lines, offset) => {
-            let mut lookup = HashMap::<& ProcExpr, u8>::new();
             let mut buffer = HashMap::<i32, u8>::new();
-            fn resolve_inner<
+            fn compute<
                 'a,
                 Ask: FnMut() -> u8,
                 Put: FnMut(u8) -> (),
@@ -331,60 +330,51 @@ pub fn run_bfoptimised_block<
                 Set: FnMut(i32, u8) -> (),
                 Clear: Fn() -> ()
             >(
-                lookup: &mut HashMap::<&'a ProcExpr, u8>,
                 ctx: &mut BFCtx<Ask, Put, Get, Set, Clear>,
                 expr: &'a ProcExpr
             ) -> Option<u8> {
-                if let Some(x) = lookup.get(expr) {
-                    Some(*x)
-                } else {
-                    let op_val = match expr {
-                        ProcExpr::Lit(x) => Some(*x),
-                        ProcExpr::Reg(r) => Some((ctx.get)(ctx.index + r)),
-                        ProcExpr::Add(a, b) =>
-                            if let Some(x) = resolve_inner(lookup, ctx, a) {
-                                if let Some(y) = resolve_inner(lookup, ctx, b) {
-                                    Some(
-                                        x.wrapping_add(y)
-                                    )
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            },
-                        ProcExpr::Mul(a, b) =>
-                            if let Some(x) = resolve_inner(lookup, ctx, a) {
-                                if let Some(y) = resolve_inner(lookup, ctx, b) {
-                                    Some(
-                                        x.wrapping_mul(y)
-                                    )
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            },
-                        ProcExpr::Into(a, b) => 
-                        if let Some(x) = resolve_inner(lookup, ctx, a) {
-                            if let Some(y) = resolve_inner(lookup, ctx, b) {
-                                div_u8(y, x)
+                match expr {
+                    ProcExpr::Lit(x) => Some(*x),
+                    ProcExpr::Reg(r) => Some((ctx.get)(ctx.index + r)),
+                    ProcExpr::Add(a, b) =>
+                        if let Some(x) = compute(ctx, a) {
+                            if let Some(y) = compute(ctx, b) {
+                                Some(
+                                    x.wrapping_add(y)
+                                )
                             } else {
                                 None
                             }
                         } else {
                             None
                         },
-                    };
-                    if let Some(val) = op_val {
-                        lookup.insert(expr, val);
-                    }
-                    op_val
+                    ProcExpr::Mul(a, b) =>
+                        if let Some(x) = compute(ctx, a) {
+                            if let Some(y) = compute(ctx, b) {
+                                Some(
+                                    x.wrapping_mul(y)
+                                )
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        },
+                    ProcExpr::Into(a, b) => 
+                    if let Some(x) = compute(ctx, a) {
+                        if let Some(y) = compute(ctx, b) {
+                            div_u8(y, x)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    },
                 }
             }
-            for line in lines {
-                if let Some(val) = resolve_inner(&mut lookup, ctx, &line.expr) {
-                    buffer.insert(line.register, val);
+            for (register, expr) in lines {
+                if let Some(val) = compute(ctx, expr) {
+                    buffer.insert(*register, val);
                 } else {
                     return false;
                 }
@@ -440,9 +430,8 @@ pub fn async_run_bfoptimised_block<
             OptimisedBlock::Ask => { (ctx.set)(ctx.index, (ctx.ask)().await); },
             OptimisedBlock::Put => (ctx.put)((ctx.get)(ctx.index)),
             OptimisedBlock::AtomicEffect(lines, offset) => {
-                let mut lookup = HashMap::<& ProcExpr, u8>::new();
                 let mut buffer = HashMap::<i32, u8>::new();
-                fn resolve_inner<
+                fn compute<
                     'a,
                     AskFuture: Future::<Output=u8>,
                     Ask: FnMut() -> AskFuture,
@@ -451,19 +440,15 @@ pub fn async_run_bfoptimised_block<
                     Set: FnMut(i32, u8) -> (),
                     Clear: Fn() -> ()
                 >(
-                    lookup: &mut HashMap::<&'a ProcExpr, u8>,
                     ctx: &mut AsyncBFCtx<AskFuture, Ask, Put, Get, Set, Clear>,
                     expr: &'a ProcExpr
                 ) -> Option<u8> {
-                    if let Some(x) = lookup.get(expr) {
-                        Some(*x)
-                    } else {
-                        let op_val = match expr {
+                        match expr {
                             ProcExpr::Lit(x) => Some(*x),
                             ProcExpr::Reg(r) => Some((ctx.get)(ctx.index + r)),
                             ProcExpr::Add(a, b) =>
-                                if let Some(x) = resolve_inner(lookup, ctx, a) {
-                                    if let Some(y) = resolve_inner(lookup, ctx, b) {
+                                if let Some(x) = compute(ctx, a) {
+                                    if let Some(y) = compute(ctx, b) {
                                         Some(
                                             x.wrapping_add(y)
                                         )
@@ -474,8 +459,8 @@ pub fn async_run_bfoptimised_block<
                                     None
                                 },
                             ProcExpr::Mul(a, b) =>
-                                if let Some(x) = resolve_inner(lookup, ctx, a) {
-                                    if let Some(y) = resolve_inner(lookup, ctx, b) {
+                                if let Some(x) = compute(ctx, a) {
+                                    if let Some(y) = compute(ctx, b) {
                                         Some(
                                             x.wrapping_mul(y)
                                         )
@@ -486,8 +471,8 @@ pub fn async_run_bfoptimised_block<
                                     None
                                 },
                             ProcExpr::Into(a, b) => 
-                            if let Some(x) = resolve_inner(lookup, ctx, a) {
-                                if let Some(y) = resolve_inner(lookup, ctx, b) {
+                            if let Some(x) = compute(ctx, a) {
+                                if let Some(y) = compute(ctx, b) {
                                     div_u8(y, x)
                                 } else {
                                     None
@@ -495,16 +480,11 @@ pub fn async_run_bfoptimised_block<
                             } else {
                                 None
                             },
-                        };
-                        if let Some(val) = op_val {
-                            lookup.insert(expr, val);
                         }
-                        op_val
-                    }
                 }
-                for line in lines {
-                    if let Some(val) = resolve_inner(&mut lookup, ctx, &line.expr) {
-                        buffer.insert(line.register, val);
+                for (register, expr) in lines {
+                    if let Some(val) = compute(ctx, expr) {
+                        buffer.insert(*register, val);
                     } else {
                         return false;
                     }

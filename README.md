@@ -1,2 +1,2 @@
 # brainfuck-optimiser
-A brainfuck parser and optimiser
+A brainfuck parser with a custom optimised bytecode

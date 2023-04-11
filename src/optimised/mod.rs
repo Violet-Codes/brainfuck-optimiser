@@ -1,29 +1,24 @@
-use std::fmt;
+use std::{fmt, collections::HashMap};
+use std::rc::Rc;
 
 pub mod interpreter;
 pub mod repl;
 pub mod optimiser;
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum ProcExpr {
     Lit(u8),
     Reg(i32),
-    Add(Box<ProcExpr>, Box<ProcExpr>),
-    Mul(Box<ProcExpr>, Box<ProcExpr>),
-    Into(Box<ProcExpr>, Box<ProcExpr>) // Into(2, 8) = 4; Into(5, 4) = 52; Into(2, 3) = throw; Into(x, 0) = 0; Into(0, x) = throw; // throw when would forever-loop
-}
-
-#[derive(Debug)]
-pub struct ProcAssign {
-    register: i32,
-    expr: ProcExpr
+    Add(Rc<ProcExpr>, Rc<ProcExpr>),
+    Mul(Rc<ProcExpr>, Rc<ProcExpr>),
+    Into(Rc<ProcExpr>, Rc<ProcExpr>) // Into(2, 8) = 4; Into(5, 4) = 52; Into(2, 3) = throw; Into(x, 0) = 0; Into(0, x) = throw; // throw when would forever-loop
 }
 
 #[derive(Debug)]
 pub enum OptimisedBlock {
     Ask,
     Put,
-    AtomicEffect(Vec<ProcAssign>, i32),
+    AtomicEffect(HashMap<i32, Rc<ProcExpr>>, i32),
     Loop(Vec<OptimisedBlock>)
 }
 
@@ -37,13 +32,6 @@ impl fmt::Display for ProcExpr {
             ProcExpr::Mul(a, b) => write!(f, "{a} * {b}"),
             ProcExpr::Into(a, b) => write!(f, "({a} into {b})"),
         }
-    }
-}
-
-impl fmt::Display for ProcAssign {
-
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "~#{} = {};", self.register, self.expr)
     }
 }
 
@@ -75,7 +63,7 @@ impl fmt::Display for OptimisedBlock {
                         "block {{\n{}\n}} (move {effect})",
                         indent_string(
                             join_strings(
-                                lines.into_iter().map(|line| format!("{line}"))
+                                lines.into_iter().map(|(register, expr)| format!("~#{} = {};", register, expr))
                             )
                         )
                     )
