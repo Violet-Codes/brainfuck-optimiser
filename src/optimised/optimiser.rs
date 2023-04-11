@@ -119,26 +119,25 @@ fn try_merge(
     }
 
     pub fn replace(
-        s: i32,
-        x: Rc<ProcExpr>,
-        y: Rc<ProcExpr>
+        lines: & HashMap<i32, Rc<ProcExpr>>,
+        x: Rc<ProcExpr>
     )
         -> Rc<ProcExpr>
     {
-        match y.as_ref() {
-            ProcExpr::Reg(r) => if *r == s { x } else { Rc::new(ProcExpr::Reg(*r)) },
+        match x.as_ref() {
+            ProcExpr::Reg(r) => lines.get(r).unwrap_or(&x).clone(),
             ProcExpr::Lit(v) => Rc::new(ProcExpr::Lit(*v)),
             ProcExpr::Add(a, b) => Rc::new(ProcExpr::Add(
-                replace(s, x.clone(), a.clone()),
-                replace(s, x.clone(), b.clone())
+                replace(lines, a.clone()),
+                replace(lines, b.clone())
             )),
             ProcExpr::Mul(a, b) => Rc::new(ProcExpr::Mul(
-                replace(s, x.clone(), a.clone()),
-                replace(s, x.clone(), b.clone())
+                replace(lines, a.clone()),
+                replace(lines, b.clone())
             )),
             ProcExpr::Into(a, b) => Rc::new(ProcExpr::Into(
-                replace(s, x.clone(), a.clone()),
-                replace(s, x.clone(), b.clone())
+                replace(lines, a.clone()),
+                replace(lines, b.clone())
             ))
         }
     }
@@ -147,10 +146,8 @@ fn try_merge(
     let OptimisedBlock::AtomicEffect(ys, j) = b else { return None; };
     let mut new_xs: HashMap<i32, Rc<ProcExpr>> = xs.clone();
     let mut new_ys: HashMap<i32, Rc<ProcExpr>> = ys.iter().map(|(register, expr)| (register + i, shift(*i, expr.clone()))).collect();
-    for (key_x, expr_x) in new_xs.iter() {
-        for (_, expr_y) in new_ys.iter_mut() {
-            *expr_y = replace(*key_x, expr_x.clone(), expr_y.clone());
-        }
+    for (_, expr_y) in new_ys.iter_mut() {
+        *expr_y = replace(&new_xs, expr_y.clone());
     }
     new_xs.extend(new_ys.into_iter());
     Some(OptimisedBlock::AtomicEffect(new_xs, i + j))
